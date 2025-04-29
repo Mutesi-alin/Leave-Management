@@ -1,34 +1,65 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import UserListView, UserDetailView, RegisterView, LoginView, RoleBasedView
-from .views import MonitoringDataViewSet
-from .views import DrainageSystemListCreateView
-from map.views import map_view, MapDeviceListView, DeviceSearchView
-from .views import SensorListCreateView, SensorDetailView
-from .views import NotificationViewSet
+from .views import (
+    EmployeeListView,
+    EmployeeDetailView,
+    ApplyLeaveView,
+    LeaveHistoryView,
+    UploadLeaveDocumentView,
+    LeaveBalanceView,
+    ApproveLeaveView,
+    RejectLeaveView,
+    PendingApprovalView,
+    LeaveTypeListView,
+    ManageLeaveTypeView,
+    PublicHolidayListView,
+    AdjustLeaveBalanceView,
+    RunMonthlyAccrualView,
+    YearEndCarryoverView,
+    LeaveReportsView, 
+    TeamOnLeaveView,
+    FilterByDepartmentView,
+GoogleSyncView
+)
 
 router = DefaultRouter()
-router.register(r"monitoring-data", MonitoringDataViewSet)
-router.register(r"notifications", NotificationViewSet)
 
 urlpatterns = [
-    path('users/', UserListView.as_view(), name='user-list'),
-    path('users/<int:id>/', UserDetailView.as_view(), name='user-detail'),
-    path('users/register/', RegisterView.as_view(), name='user-register'),
-    path('users/login/', LoginView.as_view(), name='user-login'),
-    path('users/role-based/', RoleBasedView.as_view(), name='role-based'),
-    path("", include(router.urls)),
-    path("map/", map_view, name="map_view"),
-    path("devices/", MapDeviceListView.as_view(), name="device-list"),
-    path("search/", DeviceSearchView.as_view(), name="device-search"),
-    path("sensors/", SensorListCreateView.as_view(), name="sensor-list-create"),
-    path("sensors/<int:pk>/", SensorDetailView.as_view(), name="sensor-detail"),
-    path("notifications/", NotificationViewSet.as_view({"get": "list", "post": "create"})),
-    path("datamonitoring/", MonitoringDataViewSet.as_view({"get": "list", "post": "create"})),
-    path("notifications/<int:pk>/", NotificationViewSet.as_view({"get": "retrieve", "put": "update", "delete": "destroy"})),
-    path('api/drainage-systems/', DrainageSystemListCreateView.as_view(), name='drainage-system-list-create'),
+    # Employee Management
+    path('employees/', EmployeeListView.as_view(), name='employee-list'),
+    path('employees/<int:id>/', EmployeeDetailView.as_view(), name='employee-detail'),
+
+    # Leave Requests
+    path('leaves/apply/', ApplyLeaveView.as_view(), name='apply-leave'),
+    path('leaves/history/<int:employee_id>/', LeaveHistoryView.as_view(), name='leave-history'),
+    path('leaves/upload-document/', UploadLeaveDocumentView.as_view(), name='upload-leave-document'),
+
+    # Leave Balance
+    path('leave-balance/<int:employee_id>/', LeaveBalanceView.as_view(), name='leave-balance'),
+
+    # Approvals
+    path('leave/approve/<int:leave_id>/', ApproveLeaveView.as_view(), name='approve-leave'),
+    path('leave/reject/<int:leave_id>/', RejectLeaveView.as_view(), name='reject-leave'),
+    path('leave/pending-approvals/', PendingApprovalView.as_view(), name='pending-approvals'),
+
+    # Leave Types
+    path('leave-types/', LeaveTypeListView.as_view(), name='leave-type-list'),
+    path('admin/manage-leave-types/', LeaveReportsView.as_view(), name='manage-leave-types'),
+
+    # Public Holidays
+    path('public-holidays/', PublicHolidayListView.as_view(), name='public-holiday-list'),
+
+    # Admin actions
+    path('admin/adjust-leave-balance/<int:employee_id>/', AdjustLeaveBalanceView.as_view(), name='adjust-leave-balance'),
+    path('admin/run-monthly-accrual/', RunMonthlyAccrualView.as_view(), name='run-monthly-accrual'),
+    path('admin/year-end-carryover/', YearEndCarryoverView.as_view(), name='year-end-carryover'),
+    path('admin/export-leave-data/', LeaveReportsView.as_view(), name='export-leave-data'),
+
+    # Team and Calendar
+    path('team/on-leave/', TeamOnLeaveView.as_view(), name='team-on-leave'),
+    path('team/filter-by-department/', FilterByDepartmentView.as_view(), name='filter-by-department'),
+    path('team/google-sync/',GoogleSyncView.as_view(), name='google-calendar-sync'),
+
+    # Include Router if needed
+    path('', include(router.urls)),
 ]
-
-
-    
-   

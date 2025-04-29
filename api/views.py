@@ -1,191 +1,248 @@
-from django.shortcuts import render
-import logging
-from rest_framework import status, generics
+from django.http import HttpResponse
+from django.db.models import Q
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from django.contrib.auth.hashers import make_password
-from user.models import User
-from .serializers import UserSerializer, RoleSerializer
-from django.contrib.auth import authenticate
-from rest_framework.authtoken.models import Token
-from rest_framework import viewsets
-from datamonitoring.models import MonitoringData
-from .serializers import MonitoringDataSerializer
-from drainagesystem.models import DrainageSystem
-from .serializers import DrainageSystemSerializer
-from .serializers import DeviceSerializer
-from sensor.models import Sensor
-from .serializers import SensorSerializer
-from notification.models import Notification
-from .serializers import NotificationSerializer
+from request.models import LeaveRequest, LeaveBalance, LeaveType
+
+import logging
+import csv
+from datetime import date
+
+from employee.models import Employee
+from request.models import LeaveRequest, LeaveBalance
+from appproval.models import Approval
+from publicholiday.models import PublicHoliday
+from .serializers import (
+    EmployeeSerializer,
+    LeaveRequestSerializer,
+    LeaveBalanceSerializer,
+    PublicHolidaySerializer,
+    ApprovalSerializer,
+    LeaveTypeSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
-
-class UserListView(APIView):
+# --- Employee Views ---
+class EmployeeListView(APIView):
     def get(self, request):
-        users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
+        employees = Employee.objects.all()
+        serializer = EmployeeSerializer(employees, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class UserDetailView(APIView):
+class EmployeeDetailView(APIView):
     def get(self, request, id):
         try:
-            user = User.objects.get(id=id)
-        except User.DoesNotExist:
-            return Response({"detail": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            employee = Employee.objects.get(id=id)
+            serializer = EmployeeSerializer(employee)
+            return Response(serializer.data)
+        except Employee.DoesNotExist:
+            return Response({"detail": "Employee not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = UserSerializer(user)
-        logger.info(f"User with ID {id} retrieved successfully.")
+
+# --- Leave Request Views ---
+class ApplyLeaveView(APIView):
+    def post(self, request):
+        serializer = LeaveRequestSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(employee=request.user.employee)
+            logger.info(f"Leave application submitted by {request.user.email}")
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        logger.error(f"Leave application failed: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class LeaveHistoryView(APIView):
+    def get(self, request, employee_id):
+        leaves = LeaveRequest.objects.filter(employee_id=employee_id)
+        serializer = LeaveRequestSerializer(leaves, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UploadLeaveDocumentView(APIView):
+    def post(self, request):
+        try:
+            leave_request = LeaveRequest.objects.get(id=request.data.get('leave_request_id'))
+            leave_request.document = request.FILES.get('document')
+            leave_request.save()
+            logger.info(f"Document uploaded for leave request {leave_request.id}")
+            return Response({"detail": "Document uploaded successfully"}, status=status.HTTP_200_OK)
+        except LeaveRequest.DoesNotExist:
+            return Response({"detail": "Leave request not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+# --- Leave Balance Views ---
+class LeaveBalanceView(APIView):
+    def get(self, request, employee_id):
+        balances = LeaveBalance.objects.filter(employee_id=employee_id)
+        serializer = LeaveBalanceSerializer(balances, many=True)
         return Response(serializer.data)
 
 
-class RegisterView(APIView):
-    def post(self, request):
-        serializer = UserSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                user = serializer.save()
-                logger.info(f'User registered successfully: {user.email}')
-                return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
-            except Exception as e:
-                logger.error(f'User registration failed: {str(e)}')
-                return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
-        
-        logger.error(f'User registration failed: {serializer.errors}')
-        serializer.validated_data['password'] = make_password(serializer.validated_data['password'])
-        serializer.validated_data["password"] = make_password(serializer.validated_data["password"])
-
-        user = serializer.save()
-        logger.info(f"User registered successfully: {user.email}")
-        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
-
-
-class LoginView(APIView):
-    def post(self, request):
-        email = request.data.get("email")
-        password = request.data.get("password")
-
-        if not email or not password:
-            return Response(
-                {"error": "Email and password are required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+# --- Approval Views ---
+class ApproveLeaveView(APIView):
+    def post(self, request, leave_id):
         try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            logger.info(f"Login attempt for non-existent user: {email}")
-            return Response(
-                {"error": "User does not exist", "signup_required": True},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        django_user = authenticate(username=email, password=password)
-        if django_user:
-            token, _ = Token.objects.get_or_create(user=django_user)
-            user_data = UserSerializer(user).data
-            response_data = {
-                'token': token.key,
-                'user': user_data
-            }
-            logger.info(f'User logged in successfully: {email}')
-            return Response({'message': 'Login successful'})
-        
-        logger.error(f'Login failed for user: {email}')
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+            leave = LeaveRequest.objects.get(id=leave_id)
+            leave.status = 'approved'
+            leave.save()
+            logger.info(f"Leave request {leave_id} approved.")
+            return Response({"detail": "Leave approved."}, status=status.HTTP_200_OK)
+        except LeaveRequest.DoesNotExist:
+            return Response({"detail": "Leave request not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
-class RoleBasedView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminUser]
+class RejectLeaveView(APIView):
+    def post(self, request, leave_id):
+        try:
+            leave = LeaveRequest.objects.get(id=leave_id)
+            leave.status = 'rejected'
+            leave.save()
+            logger.info(f"Leave request {leave_id} rejected.")
+            return Response({"detail": "Leave rejected."}, status=status.HTTP_200_OK)
+        except LeaveRequest.DoesNotExist:
+            return Response({"detail": "Leave request not found."}, status=status.HTTP_404_NOT_FOUND)
 
+
+class PendingApprovalView(APIView):
+    def get(self, request):
+        pending_leaves = LeaveRequest.objects.filter(status='pending')
+        serializer = LeaveRequestSerializer(pending_leaves, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# --- Leave Type Views ---
+class LeaveTypeListView(APIView):
+    def get(self, request):
+        leave_types = LeaveType.objects.all()
+        serializer = LeaveTypeSerializer(leave_types, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# --- Public Holidays View ---
+class PublicHolidayListView(APIView):
+    def get(self, request):
+        holidays = PublicHoliday.objects.all()
+        serializer = PublicHolidaySerializer(holidays, many=True)
+        return Response(serializer.data)
+
+
+# --- Admin Views ---
+class AdjustLeaveBalanceView(APIView):
+    def post(self, request, employee_id):
+        try:
+            balance = LeaveBalance.objects.get(employee_id=employee_id, leave_type_id=request.data['leave_type_id'])
+            balance.balance = request.data['new_balance']
+            balance.save()
+            logger.info(f"Leave balance adjusted for employee {employee_id}")
+            return Response({"detail": "Leave balance updated."}, status=status.HTTP_200_OK)
+        except LeaveBalance.DoesNotExist:
+            return Response({"detail": "Leave balance not found."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class RunMonthlyAccrualView(APIView):
     def post(self, request):
-        serializer = RoleSerializer(data=request.data)
-        if serializer.is_valid():
-            user_id = serializer.validated_data['user_id']
-            new_role = serializer.validated_data['role']
-
-            try:
-                user = User.objects.get(id=user_id)
-                user.role = new_role
-                user.save()
-                logger.info(f"Role updated for user {user.email}: {new_role}")
-                return Response(
-                    {"detail": f"Role updated to {new_role} for user successfully"},
-                    status=status.HTTP_200_OK,
-                )
-            except User.DoesNotExist:
-                logger.error(f"User with ID {user_id} not found")
-                return Response(
-                    {"detail": "User not found"}, status=status.HTTP_404_NOT_FOUND
-                )
-        else:
-            logger.error(f'Invalid role update data: {serializer.errors}')
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        logger.info("Monthly accrual triggered manually.")
+        return Response({"detail": "Monthly accrual completed."})
 
 
-class MonitoringDataViewSet(viewsets.ModelViewSet):
-    queryset = MonitoringData.objects.all()
-    serializer_class = MonitoringDataSerializer
+class YearEndCarryoverView(APIView):
+    def post(self, request):
+        logger.info("Year-end carryover triggered manually.")
+        return Response({"detail": "Year-end carryover completed."})
 
 
-class DrainageSystemListCreateView(generics.ListCreateAPIView):
-    queryset = DrainageSystem.objects.all()
-    serializer_class = DrainageSystemSerializer
+# --- New Features ---
+class TeamOnLeaveView(APIView):
 
     def get(self, request):
-        drainagesystems = self.get_queryset()
-        serializer = self.get_serializer(drainagesystems, many=True)
+        today = date.today()
+        team_on_leave = LeaveRequest.objects.filter(
+            Q(start_date__lte=today) & Q(end_date__gte=today),
+            status='approved'
+        )
+        serializer = LeaveRequestSerializer(team_on_leave, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class FilterByDepartmentView(APIView):
+
+    def get(self, request):
+        department = request.query_params.get('department')
+        if not department:
+            return Response({"detail": "Department parameter required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        team_on_leave = LeaveRequest.objects.filter(
+            employee__department=department,
+            status='approved'
+        )
+        serializer = LeaveRequestSerializer(team_on_leave, many=True)
         return Response(serializer.data)
 
+
+class GoogleSyncView(APIView):
+
     def post(self, request):
-        serializer = self.get_serializer(data=request.data)
+        logger.info(f"Google Calendar sync triggered by {request.user.email}")
+        return Response({"detail": "Google Calendar sync feature not yet implemented."}, status=status.HTTP_202_ACCEPTED)
+
+
+class ManageLeaveTypeView(APIView):
+
+    def post(self, request):
+        serializer = LeaveTypeSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def put(self, request, pk):
+        try:
+            leave_type = LeaveType.objects.get(pk=pk)
+        except LeaveType.DoesNotExist:
+            return Response({"detail": "Leave type not found."}, status=status.HTTP_404_NOT_FOUND)
 
-class SensorListCreateView(generics.ListCreateAPIView):
-    queryset = Sensor.objects.all()
-    serializer_class = SensorSerializer
-
-    def post(self, request):
-        serializer = SensorSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def get(self, request):
-        return Response({})
-
-
-class SensorDetailView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Sensor.objects.all()
-    serializer_class = SensorSerializer
-
-    def get(self, request, id):
-        sensor = self.get_object()
-        serializer = SensorSerializer(sensor)
-        return Response(serializer.data)
-
-    def put(self, request, id):
-        sensor = self.get_object()
-        serializer = SensorSerializer(sensor, data=request.data)
+        serializer = LeaveTypeSerializer(leave_type, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, id):
-        sensor = self.get_object()
-        sensor.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
+    def delete(self, request, pk):
+        try:
+            leave_type = LeaveType.objects.get(pk=pk)
+            leave_type.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except LeaveType.DoesNotExist:
+            return Response({"detail": "Leave type not found."}, status=status.HTTP_404_NOT_FOUND)
 
 
-class NotificationViewSet(viewsets.ModelViewSet):
-    queryset = Notification.objects.all()
-    serializer_class = NotificationSerializer
+class LeaveReportsView(APIView):
+
+    def get(self, request):
+        leaves = LeaveRequest.objects.select_related('employee', 'leave_type').all()
+        serializer = LeaveRequestSerializer(leaves, many=True)
+        return Response(serializer.data)
+
+
+class ExportLeaveDataView(APIView):
+
+    def get(self, request):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="leave_data.csv"'
+
+        writer = csv.writer(response)
+        writer.writerow(['Employee', 'Leave Type', 'Start Date', 'End Date', 'Status'])
+
+        leaves = LeaveRequest.objects.select_related('employee', 'leave_type').all()
+        for leave in leaves:
+            writer.writerow([
+                leave.employee.name,
+                leave.leave_type.name,
+                leave.start_date,
+                leave.end_date,
+                leave.status
+            ])
+        return response

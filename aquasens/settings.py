@@ -68,16 +68,31 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'aquasens.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'leave_mgmt',
-        'USER': 'postgres',
-        'PASSWORD': 'aline2000',
-        'HOST': 'localhost',
-        'PORT': '5432',
+import dj_database_url
+
+import dj_database_url
+
+if os.environ.get("DATABASE_URL"):
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ["DATABASE_URL"],
+            conn_max_age=600,
+            ssl_require=True
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'leave_mgmt',
+            'USER': 'postgres',
+            'PASSWORD': 'aline2000',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
+    }
+
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -105,6 +120,7 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 
 LANGUAGE_CODE = 'en-us'

@@ -17,12 +17,8 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-secret-for-dev")
 DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 
-ALLOWED_HOSTS = [
-    '127.0.0.1',
-    'localhost',
-    'leave-management-yn16.onrender.com',
-    '.onrender.com',
-]
+ALLOWED_HOSTS = ['leave-management-yn16.onrender.com', '127.0.0.1', 'localhost'] 
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',

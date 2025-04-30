@@ -68,30 +68,26 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'aquasens.wsgi.application'
 
-# Replace your current database section with:
 import dj_database_url
+import os
 
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=DATABASE_URL,
-            conn_max_age=600,
-            ssl_require=True
-        )
+# Use DATABASE_URL from environment if available, otherwise raise an error (in production)
+if not DEBUG and not os.environ.get('DATABASE_URL'):
+    raise Exception("DATABASE_URL environment variable is required when DEBUG=False")
+
+DATABASES = {
+    'default': dj_database_url.config(
+        conn_max_age=600,
+        ssl_require=not DEBUG
+    ) if os.environ.get('DATABASE_URL') else {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'leave_mgmt',
+        'USER': 'postgres',
+        'PASSWORD': 'aline2000',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
-else:
-    # Local development configuration
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': 'leave_mgmt',
-            'USER': 'postgres',
-            'PASSWORD': 'aline2000',
-            'HOST': 'localhost',
-            'PORT': '5432',
-        }
-    }
+}
 
 
 AUTH_PASSWORD_VALIDATORS = [

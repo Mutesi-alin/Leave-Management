@@ -1,3 +1,10 @@
+services:
+  - type: web
+    name: leave-management
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn aquasens.wsgi:application --bind 0.0.0.0:10000
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.11

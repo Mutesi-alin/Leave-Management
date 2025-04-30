@@ -1,9 +1,3 @@
-services:
-  - type: web
-    name: leave-management
-    env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn aquasens.wsgi:application
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.11
@@ -13,8 +7,8 @@ services:
         value: leave-management.onrender.com
       - key: SECRET_KEY
         generateValue: true
-      # Database connection will be automatically linked if you use Render's PostgreSQL
-      # You'll need to manually set these if using external DB
+      - key: DJANGO_SETTINGS_MODULE
+        value: aquasens.settings
       - key: POSTGRES_DATABASE
         fromDatabase:
           name: leave-management-db
@@ -35,8 +29,3 @@ services:
         fromDatabase:
           name: leave-management-db
           property: port
-
-databases:
-  - name: leave-management-db
-    databaseName: leave_management
-    plan: free 

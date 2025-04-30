@@ -1,13 +1,42 @@
 services:
   - type: web
-    name: aquasens
+    name: leave-management
     env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "gunicorn aquasens.wsgi:application"
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn aquasens.wsgi:application
     envVars:
-      - key: SECRET_KEY
-        value: your-secret-key
+      - key: PYTHON_VERSION
+        value: 3.11.11
       - key: DEBUG
         value: False
       - key: ALLOWED_HOSTS
-        value: your-app-name.onrender.com
+        value: leave-management.onrender.com
+      - key: SECRET_KEY
+        generateValue: true
+      # Database connection will be automatically linked if you use Render's PostgreSQL
+      # You'll need to manually set these if using external DB
+      - key: POSTGRES_DATABASE
+        fromDatabase:
+          name: leave-management-db
+          property: database
+      - key: POSTGRES_USER
+        fromDatabase:
+          name: leave-management-db
+          property: user
+      - key: POSTGRES_PASSWORD
+        fromDatabase:
+          name: leave-management-db
+          property: password
+      - key: POSTGRES_HOST
+        fromDatabase:
+          name: leave-management-db
+          property: host
+      - key: POSTGRES_PORT
+        fromDatabase:
+          name: leave-management-db
+          property: port
+
+databases:
+  - name: leave-management-db
+    databaseName: leave_management
+    plan: free 

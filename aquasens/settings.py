@@ -70,17 +70,32 @@ WSGI_APPLICATION = 'aquasens.wsgi.application'
 
 import dj_database_url
 
-import dj_database_url
-
-if os.environ.get("DATABASE_URL"):
-    DATABASES = {
-        'default': dj_database_url.config(
-            default=os.environ["DATABASE_URL"],
-            conn_max_age=600,
-            ssl_require=True
-        )
-    }
+# Replace your current database configuration with this
+if os.environ.get("postgresql://leave_management_kf5i_user:mY5yM57ndS7RSA8xvPQQBmWIVYO67j1x@dpg-d08tckbuibrs73cmkd7g-a.oregon-postgres.render.com/leave_management_kf5i"):
+    # Use Render's DATABASE_URL, but handle it more robustly
+    try:
+        # Parse the URL directly
+        DATABASES = {
+            'default': dj_database_url.config(
+                default=os.environ.get('postgresql://leave_management_kf5i_user:mY5yM57ndS7RSA8xvPQQBmWIVYO67j1x@dpg-d08tckbuibrs73cmkd7g-a.oregon-postgres.render.com/leave_management_kf5i'),
+                conn_max_age=600,
+                ssl_require=True
+            )
+        }
+    except ValueError:
+        
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': os.environ.get('POSTGRES_DATABASE', 'leave_mgmt'),
+                'USER': os.environ.get('POSTGRES_USER', 'postgres'),
+                'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'aline2000'),
+                'HOST': os.environ.get('POSTGRES_HOST', 'localhost'),
+                'PORT': os.environ.get('POSTGRES_PORT', '5432'),
+            }
+        }
 else:
+    # Local development configuration
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',

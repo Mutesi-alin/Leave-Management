@@ -72,22 +72,34 @@ import dj_database_url
 import os
 
 # Use DATABASE_URL from environment if available, otherwise raise an error (in production)
-if not DEBUG and not os.environ.get('DATABASE_URL'):
-    raise Exception("DATABASE_URL environment variable is required when DEBUG=False")
-
-DATABASES = {
-    'default': dj_database_url.config(
-        conn_max_age=600,
-        ssl_require=not DEBUG
-    ) if os.environ.get('DATABASE_URL') else {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'leave_mgmt',
-        'USER': 'postgres',
-        'PASSWORD': 'aline2000',
-        'HOST': 'localhost',
-        'PORT': '5432',
+if not DEBUG:
+    if os.environ.get('DATABASE_URL'):
+        DATABASES = {
+            'default': dj_database_url.config(conn_max_age=600, ssl_require=True)
+        }
+    else:
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': os.environ.get('POSTGRES_DATABASE'),
+                'USER': os.environ.get('POSTGRES_USER'),
+                'PASSWORD': os.environ.get('POSTGRES_PASSWORD'),
+                'HOST': os.environ.get('POSTGRES_HOST'),
+                'PORT': os.environ.get('POSTGRES_PORT'),
+            }
+        }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'leave_mgmt',
+            'USER': 'postgres',
+            'PASSWORD': 'aline2000',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
     }
-}
+
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -133,7 +145,9 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
